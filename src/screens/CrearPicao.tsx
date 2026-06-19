@@ -1,79 +1,71 @@
 'use client'
 
 import React, { useState } from 'react'
-import { ChevronLeft, ChevronRight, MapPin, Check, Clock, Globe, Lock } from 'lucide-react'
-import { FIELDS, FORMAT_PLAYERS, FORMAT_LABEL, Picao } from '../data/picaos'
+import { ChevronLeft, ChevronRight, MapPin, Check, Clock, Globe, Lock, Loader2 } from 'lucide-react'
+import { FORMAT_PLAYERS, FORMAT_LABEL, Picao } from '../data/picaos'
+import { crearPicao, type Cancha } from '../lib/picaos'
 
 const money = (n: number) => '$' + n.toLocaleString('es-CO')
 const GANANCIA = 1250
-const perHourPerson = (fieldId: string) => {
-  const f = FIELDS[fieldId]
-  return Math.round(f.pricePerHour / FORMAT_PLAYERS[f.format]) + GANANCIA
+const FORMATO_UI: Record<string, string> = {
+  FUTBOL5: '5v5',
+  FUTBOL7: '7v7',
+  FUTBOL8: '8v8',
+  FUTBOL11: '11v11',
 }
+const cuposDe = (c: Cancha) => FORMAT_PLAYERS[FORMATO_UI[c.formato_id]] ?? 10
+const labelDe = (c: Cancha) => FORMAT_LABEL[FORMATO_UI[c.formato_id]] ?? c.formato_id
+const valorPersona = (c: Cancha) => Math.round(c.precio_hora / cuposDe(c)) + GANANCIA
 
 export const CrearPicao = ({
+  canchas,
   onBack,
-  onComplete,
+  onCreated,
 }: {
+  canchas: Cancha[]
   onBack: () => void
-  onComplete: (p: Picao) => void
+  onCreated: (p: Picao) => void
 }) => {
   const [step, setStep] = useState(1)
-  const [fieldId, setFieldId] = useState('f1')
+  const [canchaId, setCanchaId] = useState<string>(canchas[0]?.id ?? '')
   const [date, setDate] = useState('')
   const [hours, setHours] = useState<string[]>([])
   const [visibility, setVisibility] = useState<'publico' | 'privado'>('publico')
+  const [creando, setCreando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const field = FIELDS[fieldId]
-  const players = FORMAT_PLAYERS[field.format]
-  const valorHora = perHourPerson(fieldId)
+  const cancha = canchas.find((c) => c.id === canchaId)
+  const valorHora = cancha ? valorPersona(cancha) : 0
   const totalPersona = valorHora * hours.length
 
-  const takenSet = (() => {
-    if (!date) return new Set<string>()
-    let h = 0
-    for (const c of date + fieldId) h = (h * 31 + c.charCodeAt(0)) >>> 0
-    const arr = field.hours
-    return new Set([arr[h % arr.length], arr[(h >> 3) % arr.length]])
-  })()
-
-  const selectField = (id: string) => {
-    setFieldId(id)
+  const selectCancha = (id: string) => {
+    setCanchaId(id)
     setHours([])
   }
   const onDate = (d: string) => {
     setDate(d)
     setHours([])
   }
-  const toggleHour = (hh: string) => {
-    if (takenSet.has(hh)) return
+  const toggleHour = (hh: string) =>
     setHours((prev) => (prev.includes(hh) ? prev.filter((x) => x !== hh) : [...prev, hh]))
-  }
 
-  const canNext = step === 1 ? true : step === 2 ? !!date && hours.length > 0 : true
-  const publish = () => {
-    const nuevo: Picao = {
-      id: 'u' + Date.now(),
-      code: 'PCO-' + Math.floor(1000 + Math.random() * 9000),
-      fieldId,
-      date: date || 'Por definir',
-      time: hours[0] || '',
-      duration: hours.length + ' h',
-      hoursCount: hours.length,
-      format: field.format,
-      slots: 1,
-      totalSlots: players,
-      price: valorHora,
-      urgent: false,
-      map: { x: 50, y: 50 },
-      distanceKm: 0.6,
-      organizer: { name: 'Tú', rating: 5.0, avatar: 'https://i.pravatar.cc/100?img=12' },
-      players: [],
-      status: 'abierto',
-      visibility,
-      createdByMe: true,
+  const canNext = step === 1 ? !!cancha : step === 2 ? !!date && hours.length > 0 : true
+  const publish = async () => {
+    if (!cancha || creando) return
+    setCreando(true)
+    setError(null)
+    const { picao, error } = await crearPicao({
+      canchaId: cancha.id,
+      fecha: date,
+      horas: hours,
+      visibilidad: visibility,
+    })
+    setCreando(false)
+    if (error || !picao) {
+      setError(error ?? 'No se pudo crear el picao.')
+      return
     }
-    onComplete(nuevo)
+    onCreated(picao)
   }
   const next = () => {
     if (step < 3) setStep(step + 1)
@@ -102,29 +94,36 @@ export const CrearPicao = ({
           <div>
             <h1 className="font-display text-2xl text-crema mb-2">ELIGE LA CANCHA</h1>
             <p className="text-gris mb-6">El precio mostrado es por persona, por hora.</p>
-            <div className="space-y-3">
-              {Object.values(FIELDS).map((f) => (
-                <div key={f.id} onClick={() => selectField(f.id)} className={`flex items-center gap-4 p-3 rounded-xl border-2 cursor-pointer transition-colors ${fieldId === f.id ? 'border-naranja bg-naranja/10' : 'border-superficie bg-superficie'}`}>
-                  <img src={f.photoUrl} className="w-16 h-16 rounded-lg object-cover" alt={f.name} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-crema font-medium truncate">{f.name}</div>
-                    <div className="text-xs text-gris flex items-center gap-1 mt-1"><MapPin size={12} /> {f.barrio}</div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-[11px] font-display bg-carbon text-crema px-2 py-0.5 rounded">{FORMAT_LABEL[f.format]}</span>
-                      <span className="text-[11px] text-verde font-semibold">{money(perHourPerson(f.id))}/persona la hora</span>
+            {canchas.length === 0 ? (
+              <div className="text-center text-gris text-sm bg-superficie/50 border border-white/5 rounded-xl py-8 px-4">
+                No hay canchas disponibles todavía.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {canchas.map((c) => (
+                  <div key={c.id} onClick={() => selectCancha(c.id)} className={`flex items-center gap-4 p-3 rounded-xl border-2 cursor-pointer transition-colors ${canchaId === c.id ? 'border-naranja bg-naranja/10' : 'border-superficie bg-superficie'}`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={c.foto_url ?? ''} className="w-16 h-16 rounded-lg object-cover bg-carbon" alt={c.nombre} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-crema font-medium truncate">{c.nombre}</div>
+                      <div className="text-xs text-gris flex items-center gap-1 mt-1"><MapPin size={12} /> {c.barrio}</div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-[11px] font-display bg-carbon text-crema px-2 py-0.5 rounded">{labelDe(c)}</span>
+                        <span className="text-[11px] text-verde font-semibold">{money(valorPersona(c))}/persona la hora</span>
+                      </div>
                     </div>
+                    {canchaId === c.id && (<div className="w-6 h-6 rounded-full bg-naranja flex items-center justify-center shrink-0"><Check size={14} className="text-carbon" strokeWidth={3} /></div>)}
                   </div>
-                  {fieldId === f.id && (<div className="w-6 h-6 rounded-full bg-naranja flex items-center justify-center shrink-0"><Check size={14} className="text-carbon" strokeWidth={3} /></div>)}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {step === 2 && (
+        {step === 2 && cancha && (
           <div>
             <h1 className="font-display text-2xl text-crema mb-2">FECHA Y HORA</h1>
-            <p className="text-gris mb-5">Elige el día y verás las horas libres de <span className="text-crema">{field.name}</span>.</p>
+            <p className="text-gris mb-5">Elige el día y las horas en <span className="text-crema">{cancha.nombre}</span>.</p>
             <label className="text-sm text-gris mb-2 block">Fecha</label>
             <input type="date" value={date} onChange={(e) => onDate(e.target.value)} className="w-full bg-superficie border border-white/10 rounded-xl px-4 py-4 text-crema outline-none focus:border-naranja transition-colors [color-scheme:dark] mb-6" />
             {!date ? (
@@ -136,12 +135,11 @@ export const CrearPicao = ({
               <>
                 <label className="text-sm text-gris mb-2 block">Horas disponibles · puedes elegir varias</label>
                 <div className="grid grid-cols-3 gap-2 mb-6">
-                  {field.hours.map((hh) => {
-                    const taken = takenSet.has(hh)
+                  {cancha.horas.map((hh) => {
                     const on = hours.includes(hh)
                     return (
-                      <button key={hh} onClick={() => toggleHour(hh)} disabled={taken} className={`py-3 rounded-xl text-sm border-2 transition-all ${taken ? 'border-transparent bg-carbon text-gris/40 line-through cursor-not-allowed' : on ? 'border-verde bg-verde text-carbon font-semibold' : 'border-superficie bg-superficie text-crema'}`}>
-                        {hh}{taken && <div className="text-[9px] no-underline">Ocupada</div>}
+                      <button key={hh} onClick={() => toggleHour(hh)} className={`py-3 rounded-xl text-sm border-2 transition-all ${on ? 'border-verde bg-verde text-carbon font-semibold' : 'border-superficie bg-superficie text-crema'}`}>
+                        {hh}
                       </button>
                     )
                   })}
@@ -149,7 +147,7 @@ export const CrearPicao = ({
                 {hours.length > 0 && (
                   <div className="bg-superficie rounded-xl p-4 flex items-center justify-between">
                     <div>
-                      <div className="text-xs text-gris">{hours.length} hora{hours.length === 1 ? '' : 's'} · {FORMAT_LABEL[field.format]}</div>
+                      <div className="text-xs text-gris">{hours.length} hora{hours.length === 1 ? '' : 's'} · {labelDe(cancha)}</div>
                       <div className="text-crema font-medium text-sm">Valor por hora / persona</div>
                     </div>
                     <div className="text-verde font-display text-2xl">{money(valorHora)}</div>
@@ -160,14 +158,15 @@ export const CrearPicao = ({
           </div>
         )}
 
-        {step === 3 && (
+        {step === 3 && cancha && (
           <div>
             <h1 className="font-display text-2xl text-crema mb-6">RESUMEN</h1>
             <div className="bg-superficie rounded-2xl overflow-hidden border border-white/5 mb-4">
-              <img src={field.photoUrl} className="w-full h-28 object-cover" alt={field.name} />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={cancha.foto_url ?? ''} className="w-full h-28 object-cover bg-carbon" alt={cancha.nombre} />
               <div className="p-4">
-                <h3 className="font-display text-xl text-crema">{field.name}</h3>
-                <div className="text-sm text-gris mt-1">{FORMAT_LABEL[field.format]} · {date || 'Sin fecha'}</div>
+                <h3 className="font-display text-xl text-crema">{cancha.nombre}</h3>
+                <div className="text-sm text-gris mt-1">{labelDe(cancha)} · {date || 'Sin fecha'}</div>
                 <div className="text-sm text-crema mt-1">{hours.length ? hours.join(' · ') : 'Sin horas'}</div>
               </div>
             </div>
@@ -181,7 +180,7 @@ export const CrearPicao = ({
                 <Lock size={16} /> Privado
               </button>
             </div>
-            <p className="text-xs text-gris mb-5">{visibility === 'publico' ? 'Cualquiera puede encontrar y unirse a este picao.' : 'Solo quien tenga el ID o tu invitación podrá unirse.'}</p>
+            <p className="text-xs text-gris mb-5">{visibility === 'publico' ? 'Cualquiera puede encontrar y unirse a este picao.' : 'Solo quien tenga el código PCO podrá encontrarlo.'}</p>
 
             <div className="bg-superficie rounded-2xl p-5 flex items-center justify-between">
               <div>
@@ -193,13 +192,14 @@ export const CrearPicao = ({
             {hours.length > 1 && (
               <p className="text-xs text-gris text-center mt-3">Tu total por las {hours.length} horas: <span className="text-crema font-semibold">{money(totalPersona)}</span></p>
             )}
+            {error && <p className="text-magenta text-sm text-center mt-4">{error}</p>}
           </div>
         )}
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 bg-carbon border-t border-white/5 p-5 pb-8 z-20">
-        <button onClick={next} disabled={!canNext} className="w-full bg-verde text-carbon font-display text-lg py-4 rounded-xl active:scale-95 transition-transform flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100">
-          {step === 3 ? 'PUBLICAR Y PAGAR' : 'SIGUIENTE'}<ChevronRight size={20} />
+        <button onClick={next} disabled={!canNext || creando} className="w-full bg-verde text-carbon font-display text-lg py-4 rounded-xl active:scale-95 transition-transform flex items-center justify-center gap-2 disabled:opacity-50 disabled:active:scale-100">
+          {creando ? <Loader2 size={20} className="animate-spin" /> : (<>{step === 3 ? 'PUBLICAR' : 'SIGUIENTE'}<ChevronRight size={20} /></>)}
         </button>
       </div>
     </div>

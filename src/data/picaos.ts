@@ -33,16 +33,23 @@ export interface Picao {
   visibility?: 'publico' | 'privado'
   createdByMe?: boolean
   joined?: boolean
+  // Datos reales de cancha (desde Supabase). Si están presentes, la UI los usa
+  // en vez de buscar en el catálogo mock FIELDS.
+  fotoUrl?: string
+  canchaNombre?: string
+  barrio?: string
 }
 
 export const FORMAT_PLAYERS: Record<string, number> = {
   '5v5': 10,
   '7v7': 14,
+  '8v8': 16,
   '11v11': 22,
 }
 export const FORMAT_LABEL: Record<string, string> = {
   '5v5': 'Fútbol 5',
   '7v7': 'Fútbol 7',
+  '8v8': 'Fútbol 8',
   '11v11': 'Fútbol 11',
 }
 

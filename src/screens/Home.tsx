@@ -1,23 +1,30 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Bell, Filter, Plus, X, Check, Search, Navigation, MapPin } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Logo, FieldCard } from '../components/Shared'
-import { MOCK_PICAOS, FIELDS, Picao } from '../data/picaos'
+import { FIELDS, Picao } from '../data/picaos'
+import { buscarPorCodigo } from '../lib/picaos'
 
 const FORMATOS = [
   { id: 'todos', label: 'Todos' },
   { id: '5v5', label: 'Fútbol 5' },
   { id: '7v7', label: 'Fútbol 7' },
+  { id: '8v8', label: 'Fútbol 8' },
   { id: '11v11', label: 'Fútbol 11' },
 ]
 
+const nombreCancha = (p: Picao) => p.canchaNombre ?? FIELDS[p.fieldId]?.name ?? 'Cancha'
+const barrioCancha = (p: Picao) => p.barrio ?? FIELDS[p.fieldId]?.barrio ?? ''
+
 export const Home = ({
+  picaos,
   onSelectPicao,
   onNotifications,
   onCrear,
 }: {
+  picaos: Picao[]
   onSelectPicao: (p: Picao) => void
   onNotifications: () => void
   onCrear: () => void
@@ -30,19 +37,18 @@ export const Home = ({
   const [mapOpen, setMapOpen] = useState(false)
   const [located, setLocated] = useState(false)
   const [locating, setLocating] = useState(false)
+  const [porCodigo, setPorCodigo] = useState<Picao | null>(null)
 
-  const abiertos = MOCK_PICAOS.filter((p) => p.status === 'abierto')
+  const abiertos = picaos.filter((p) => p.status === 'abierto')
   const fechas = ['todas', ...Array.from(new Set(abiertos.map((p) => p.date)))]
-  const canchas = [
-    'todas',
-    ...Array.from(new Set(abiertos.map((p) => p.fieldId))),
-  ]
+  const canchas = ['todas', ...Array.from(new Set(abiertos.map((p) => p.fieldId)))]
+  const nombrePorId: Record<string, string> = {}
+  for (const p of abiertos) nombrePorId[p.fieldId] = nombreCancha(p)
 
   const q = query.trim().toLowerCase()
   const matchesQuery = (p: Picao) => {
     if (!q) return true
-    const f = FIELDS[p.fieldId]
-    return [p.code, f.name, f.barrio, p.date, p.time, p.format].some((s) =>
+    return [p.code, nombreCancha(p), barrioCancha(p), p.date, p.time, p.format].some((s) =>
       s.toLowerCase().includes(q),
     )
   }
@@ -53,6 +59,25 @@ export const Home = ({
       (fecha === 'todas' || p.date === fecha) &&
       (cancha === 'todas' || p.fieldId === cancha),
   )
+
+  // Búsqueda por código PCO: encuentra también privados (vía función SECURITY DEFINER).
+  useEffect(() => {
+    const raw = query.trim()
+    const m = raw.match(/^(?:pco-?)?(\d{4})$/i)
+    if (!m) {
+      setPorCodigo(null)
+      return
+    }
+    let activo = true
+    buscarPorCodigo(`PCO-${m[1]}`).then((p) => {
+      if (activo) setPorCodigo(p)
+    })
+    return () => {
+      activo = false
+    }
+  }, [query])
+
+  const extra = porCodigo && !filtered.some((p) => p.id === porCodigo.id) ? porCodigo : null
 
   const activeCount = (fecha !== 'todas' ? 1 : 0) + (cancha !== 'todas' ? 1 : 0)
   const clearAll = () => {
@@ -158,7 +183,7 @@ export const Home = ({
                   onClick={() => setCancha('todas')}
                   className="flex items-center gap-1 bg-verde/10 border border-verde/40 text-verde text-xs px-3 py-1.5 rounded-full"
                 >
-                  {FIELDS[cancha].name} <X size={12} />
+                  {nombrePorId[cancha]} <X size={12} />
                 </button>
               )}
             </div>
@@ -167,18 +192,26 @@ export const Home = ({
 
         {/* List */}
         <div className="px-5 space-y-4 pb-6">
+          {extra && (
+            <div>
+              <p className="text-xs text-verde uppercase tracking-wider mb-2">Encontrado por código</p>
+              <FieldCard picao={extra} onClick={() => onSelectPicao(extra)} />
+            </div>
+          )}
           {filtered.length > 0 ? (
             filtered.map((p) => (
               <FieldCard key={p.id} picao={p} onClick={() => onSelectPicao(p)} />
             ))
-          ) : (
+          ) : !extra ? (
             <div className="text-center py-16">
               <p className="font-display text-lg text-crema mb-1">SIN PICAOS</p>
               <p className="text-sm text-gris">
-                Nada coincide con tu búsqueda. Prueba con otro término o filtro.
+                {abiertos.length === 0
+                  ? 'Todavía no hay picaos abiertos. ¡Crea el primero!'
+                  : 'Nada coincide con tu búsqueda. Prueba con otro término o filtro.'}
               </p>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -235,7 +268,7 @@ export const Home = ({
                     onClick={() => setCancha(c)}
                     className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm border transition-all ${cancha === c ? 'bg-verde/10 text-crema border-verde' : 'bg-carbon text-crema border-white/10'}`}
                   >
-                    <span>{c === 'todas' ? 'Todas las canchas' : FIELDS[c].name}</span>
+                    <span>{c === 'todas' ? 'Todas las canchas' : nombrePorId[c]}</span>
                     {cancha === c && <Check size={16} className="text-verde" />}
                   </button>
                 ))}
@@ -294,82 +327,34 @@ export const Home = ({
                     {locating ? 'BUSCANDO…' : 'ACTIVAR UBICACIÓN'}
                   </button>
                 </div>
+              ) : nearby.length === 0 ? (
+                <div className="text-center py-10 text-gris text-sm">
+                  No hay picaos abiertos cerca por ahora.
+                </div>
               ) : (
                 <>
-                  {/* Faux map */}
-                  <div
-                    className="relative w-full rounded-2xl overflow-hidden border border-verde/20 mb-4"
-                    style={{
-                      height: 280,
-                      backgroundColor: '#121319',
-                      backgroundImage:
-                        'linear-gradient(rgba(196,240,66,0.07) 1px,transparent 1px),linear-gradient(90deg,rgba(196,240,66,0.07) 1px,transparent 1px)',
-                      backgroundSize: '34px 34px',
-                    }}
-                  >
-                    {/* user marker */}
-                    <div className="absolute" style={{ left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }}>
-                      <div className="relative flex flex-col items-center">
-                        <span className="absolute w-10 h-10 rounded-full bg-naranja/30 animate-ping" />
-                        <span className="w-4 h-4 rounded-full bg-naranja border-2 border-carbon z-10" />
-                        <span className="text-[10px] text-naranja font-bold mt-1">TÚ</span>
-                      </div>
-                    </div>
-                    {/* picao markers */}
-                    {abiertos.map((p) => {
-                      const urgent =
-                        p.totalSlots - p.slots <= 2 &&
-                        p.totalSlots !== p.slots
-                      return (
-                        <button
-                          key={p.id}
-                          onClick={() => goToPicao(p)}
-                          style={{ left: `${p.map.x}%`, top: `${p.map.y}%` }}
-                          className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-10"
-                        >
-                          <div
-                            className={`w-8 h-8 rounded-full flex items-center justify-center border-2 border-carbon shadow-lg ${urgent ? 'bg-magenta' : 'bg-verde'}`}
-                          >
-                            <MapPin size={15} className="text-carbon" />
-                          </div>
-                          <span className="text-[9px] text-crema font-semibold mt-0.5 bg-carbon/70 px-1 rounded whitespace-nowrap">
-                            {p.distanceKm} km
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-
+                  {/* Lista cercana */}
                   <p className="text-xs text-gris uppercase tracking-wider mb-2">
-                    {nearby.length} picaos cerca de ti
+                    {nearby.length} picao{nearby.length === 1 ? '' : 's'} abierto{nearby.length === 1 ? '' : 's'}
                   </p>
                   <div className="space-y-2">
-                    {nearby.map((p) => {
-                      const f = FIELDS[p.fieldId]
-                      const urgent =
-                        p.totalSlots - p.slots <= 2 &&
-                        p.totalSlots !== p.slots
-                      return (
-                        <button
-                          key={p.id}
-                          onClick={() => goToPicao(p)}
-                          className="w-full flex items-center gap-3 bg-superficie rounded-xl p-3 text-left active:scale-[0.98] transition-transform"
-                        >
-                          <div
-                            className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${urgent ? 'bg-magenta' : 'bg-verde'}`}
-                          >
-                            <MapPin size={16} className="text-carbon" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-crema font-semibold text-sm truncate">{f.name}</p>
-                            <p className="text-xs text-gris">
-                              {f.barrio} · {p.date} {p.time} · #{p.code}
-                            </p>
-                          </div>
-                          <span className="text-verde font-bold text-sm shrink-0">{p.distanceKm} km</span>
-                        </button>
-                      )
-                    })}
+                    {nearby.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => goToPicao(p)}
+                        className="w-full flex items-center gap-3 bg-superficie rounded-xl p-3 text-left active:scale-[0.98] transition-transform"
+                      >
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-verde">
+                          <MapPin size={16} className="text-carbon" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-crema font-semibold text-sm truncate">{nombreCancha(p)}</p>
+                          <p className="text-xs text-gris">
+                            {barrioCancha(p)} · {p.date} {p.time} · #{p.code}
+                          </p>
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </>
               )}

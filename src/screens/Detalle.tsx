@@ -23,6 +23,9 @@ export const Detalle = ({
   onChat: () => void
 }) => {
   const field = FIELDS[picao.fieldId]
+  const foto = picao.fotoUrl ?? field?.photoUrl ?? 'https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&w=800&q=80'
+  const nombre = picao.canchaNombre ?? field?.name ?? 'Cancha'
+  const barrio = picao.barrio ?? field?.barrio ?? 'Cartagena'
   const isUrgent =
     picao.totalSlots - picao.slots <= 2 && picao.totalSlots !== picao.slots
   const mine = !!(picao.createdByMe || picao.joined)
@@ -40,7 +43,7 @@ export const Detalle = ({
       </div>
 
       <div className="h-64 bg-superficie relative">
-        <img src={field.photoUrl} alt={field.name} className="w-full h-full object-cover opacity-60" />
+        <img src={foto} alt={nombre} className="w-full h-full object-cover opacity-60" />
         <div className="absolute inset-0 bg-gradient-to-t from-carbon to-transparent"></div>
       </div>
 
@@ -48,10 +51,10 @@ export const Detalle = ({
         <div className="inline-block px-3 py-1 bg-naranja text-crema text-xs font-bold uppercase tracking-wider rounded-md mb-3">
           Fútbol {picao.format}
         </div>
-        <h1 className="font-display text-3xl text-crema leading-tight mb-2">{field.name}</h1>
+        <h1 className="font-display text-3xl text-crema leading-tight mb-2">{nombre}</h1>
         <div className="flex items-center gap-2 text-gris mb-6">
           <MapPin size={16} />
-          <span>{field.barrio}, Cartagena</span>
+          <span>{barrio}, Cartagena</span>
         </div>
 
         <div className="flex gap-4 mb-8">

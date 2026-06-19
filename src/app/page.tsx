@@ -20,6 +20,7 @@ import { BottomNav } from '../components/Shared'
 import { Picao, MOCK_PICAOS } from '../data/picaos'
 import { createClient } from '../lib/supabase/client'
 import { guardarPerfil, obtenerPerfil, type PerfilDatos } from '../lib/auth'
+import { listarCanchas, listarPicaosPublicos, type Cancha } from '../lib/picaos'
 
 type ScreenState =
   | 'splash'
@@ -42,7 +43,9 @@ export default function Page() {
   const [activeTab, setActiveTab] = useState<'home' | 'mis-partidos' | 'perfil'>('home')
   const [selectedPicao, setSelectedPicao] = useState<Picao | null>(MOCK_PICAOS[0])
   const [created, setCreated] = useState<Picao[]>(MOCK_PICAOS.filter((p) => p.createdByMe))
-  const [pendingPicao, setPendingPicao] = useState<Picao | null>(null)
+  // Datos reales del loop (paso 5)
+  const [canchas, setCanchas] = useState<Cancha[]>([])
+  const [picaosReales, setPicaosReales] = useState<Picao[]>([])
   // --- Auth ---
   const [authNuevo, setAuthNuevo] = useState(false) // true = registro, false = inicio de sesión
   const [guardando, setGuardando] = useState(false)
@@ -87,16 +90,22 @@ export default function Page() {
     setSelectedPicao(p)
     push('chat')
   }
-  const startCreatedPayment = (p: Picao) => {
-    setPendingPicao(p)
-    setSelectedPicao(p)
-    push('pago')
+  // Carga canchas + picaos reales al entrar a Home.
+  const cargarHome = async () => {
+    const [cs, ps] = await Promise.all([listarCanchas(), listarPicaosPublicos()])
+    setCanchas(cs)
+    setPicaosReales(ps)
+  }
+  useEffect(() => {
+    if (currentScreen === 'home') cargarHome()
+  }, [currentScreen])
+
+  const handlePicaoCreado = (p: Picao) => {
+    setSelectedPicao({ ...p, createdByMe: true })
+    listarPicaosPublicos().then(setPicaosReales)
+    push('detalle')
   }
   const handlePaid = () => {
-    if (pendingPicao) {
-      setCreated((prev) => [pendingPicao, ...prev])
-      setPendingPicao(null)
-    }
     push('confirmado')
   }
   const toggleVisibility = (id: string) =>
@@ -156,6 +165,7 @@ export default function Page() {
           {currentScreen === 'home' && (
             <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full absolute inset-0">
               <Home
+                picaos={picaosReales}
                 onSelectPicao={(p) => {
                   setSelectedPicao(p)
                   push('detalle')
@@ -213,7 +223,7 @@ export default function Page() {
           )}
           {currentScreen === 'crear' && (
             <motion.div key="crear" initial={{ y: 390 }} animate={{ y: 0 }} exit={{ y: 390 }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="h-full absolute inset-0 z-30">
-              <CrearPicao onBack={pop} onComplete={startCreatedPayment} />
+              <CrearPicao canchas={canchas} onBack={pop} onCreated={handlePicaoCreado} />
             </motion.div>
           )}
         </AnimatePresence>

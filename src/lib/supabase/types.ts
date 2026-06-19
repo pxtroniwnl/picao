@@ -16,6 +16,42 @@ export type Database = {
         Update: { id?: string; label?: string; cupos_totales?: number }
         Relationships: []
       }
+      canchas: {
+        Row: {
+          id: string
+          nombre: string
+          barrio: string
+          foto_url: string | null
+          formato_id: string
+          precio_hora: number
+          horas: string[]
+          activa: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          nombre: string
+          barrio: string
+          foto_url?: string | null
+          formato_id: string
+          precio_hora: number
+          horas?: string[]
+          activa?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          nombre?: string
+          barrio?: string
+          foto_url?: string | null
+          formato_id?: string
+          precio_hora?: number
+          horas?: string[]
+          activa?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
       posiciones: {
         Row: { id: string; formato_id: string; zona: Zona; nombre: string; codigo: string }
         Insert: { id?: string; formato_id: string; zona: Zona; nombre: string; codigo: string }
@@ -30,6 +66,7 @@ export type Database = {
           telefono: string | null
           email: string | null
           fecha_nacimiento: string | null
+          es_admin: boolean
           created_at: string
         }
         Insert: {
@@ -39,6 +76,7 @@ export type Database = {
           telefono?: string | null
           email?: string | null
           fecha_nacimiento?: string | null
+          es_admin?: boolean
           created_at?: string
         }
         Update: {
@@ -48,6 +86,7 @@ export type Database = {
           telefono?: string | null
           email?: string | null
           fecha_nacimiento?: string | null
+          es_admin?: boolean
           created_at?: string
         }
         Relationships: []
@@ -69,6 +108,8 @@ export type Database = {
           id: string
           codigo: string
           organizador_id: string
+          organizador_apodo: string | null
+          cancha_id: string | null
           cancha_nombre: string
           barrio: string
           formato_id: string
@@ -77,6 +118,7 @@ export type Database = {
           duracion_horas: number
           precio_cancha_hora: number
           sena: number
+          cupos_ocupados: number
           visibilidad: Visibilidad
           estado: EstadoPicao
           created_at: string
@@ -85,6 +127,8 @@ export type Database = {
           id?: string
           codigo?: string
           organizador_id: string
+          organizador_apodo?: string | null
+          cancha_id?: string | null
           cancha_nombre: string
           barrio: string
           formato_id: string
@@ -93,6 +137,7 @@ export type Database = {
           duracion_horas?: number
           precio_cancha_hora: number
           sena: number
+          cupos_ocupados?: number
           visibilidad?: Visibilidad
           estado?: EstadoPicao
           created_at?: string
@@ -101,6 +146,8 @@ export type Database = {
           id?: string
           codigo?: string
           organizador_id?: string
+          organizador_apodo?: string | null
+          cancha_id?: string | null
           cancha_nombre?: string
           barrio?: string
           formato_id?: string
@@ -109,6 +156,7 @@ export type Database = {
           duracion_horas?: number
           precio_cancha_hora?: number
           sena?: number
+          cupos_ocupados?: number
           visibilidad?: Visibilidad
           estado?: EstadoPicao
           created_at?: string
@@ -174,6 +222,10 @@ export type Database = {
     Functions: {
       gen_codigo_pco: { Args: Record<never, never>; Returns: string }
       calcular_sena: { Args: { precio: number; cupos: number }; Returns: number }
+      buscar_picao_por_codigo: {
+        Args: { p_codigo: string }
+        Returns: Database['public']['Tables']['picaos']['Row'][]
+      }
     }
     Enums: {
       zona: Zona
