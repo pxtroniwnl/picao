@@ -29,25 +29,45 @@ Construida como **PWA** (instalable desde el celular, sin tienda de apps al inic
 
 ## ✅ Lo que hay hecho hasta ahora
 
-Esta fase es el **scaffold + el frontend visual completo**, portado 1:1 desde el
-prototipo de Magic Patterns. Todavía **sin lógica de datos, auth ni pagos**.
+Basado en el orden de construcción del [CLAUDE.md](CLAUDE.md):
 
-- **Scaffold Next.js (PWA):** Next.js 15 + React 18, App Router, TypeScript, carpeta `src/`.
-- **Sistema de diseño en Tailwind v3** con los tokens de marca:
-  - Naranja Brasa `#FF5436` · Carbón Cancha `#16171D` · Verde Eléctrico `#C4F042`
-    · Magenta Bugambilia `#E5167B` · Crema `#FAF5EC`.
-  - Tipografías: **Archivo** (display, mayúsculas) e **Inter** (cuerpo) vía `next/font`.
+#### 🔧 Scaffold + frontend visual
+- **Next.js 15 + React 18**, App Router, TypeScript, carpeta `src/`.
+- **Sistema de diseño en Tailwind v3** con tokens de marca (Naranja Brasa `#FF5436`,
+  Carbón Cancha `#16171D`, Verde Eléctrico `#C4F042`, Magenta Bugambilia `#E5167B`,
+  Crema `#FAF5EC`).
+- **Tipografías:** Archivo (display) e Inter (cuerpo) vía `next/font`.
 - **Shell móvil full-screen** + **bottom nav de 3 tabs** (Picaos · Mis picaos · Perfil).
-- **14 pantallas** portadas tal cual del prototipo, con navegación por **máquina de
-  estados** (`history` + `framer-motion`): Splash, Onboarding, Welcome, Login, Register
-  (3 pasos), Home, Detalle, Pago, Confirmado, Mis Picaos, Chat, Perfil, Notificaciones,
-  Crear Picao.
-- **Capa PWA:** `manifest.webmanifest`, ícono O-cancha (SVG) y service worker mínimo
-  para que sea instalable.
-- Datos de ejemplo (*mocks*) en `src/data/picaos.ts` para poblar las pantallas.
+- **14 pantallas** con navegación por **máquina de estados** (`history` + `framer-motion`).
+- **Capa PWA:** manifest, ícono O-cancha (SVG) y service worker instalable.
 
-> ⚠️ Por ahora la navegación es una máquina de estados (igual al prototipo). Se migrará
-> a rutas reales de App Router cuando se cablee la lógica de datos.
+#### 🔐 Auth con Supabase (paso 3)
+- **Enlace mágico (OTP por email)** con `@supabase/ssr`.
+- Flujo completo: Welcome → Login → Register (3 pasos con cédula, apodo, zonas y
+  posiciones favoritas).
+- `middleware.ts` que refresca la sesión por cookie en cada request.
+- Funciones `enviarEnlace()`, `obtenerPerfil()`, `guardarPerfil()`, `cerrarSesion()`.
+
+#### 🗄️ Modelo de datos en Supabase (paso 4)
+- **5 migraciones SQL** en `supabase/migrations/`:
+  `0001_init` (usuarios, picaos, inscripciones, pagos),
+  `0002_seed_catalogos` (formatos y posiciones precargadas),
+  `0003_perfil_extendido` (usuario_zonas, usuario_posiciones),
+  `0004_cedula_y_limpieza`, `0005_canchas`.
+- Tipos autogenerados en `src/lib/supabase/types.ts`.
+- Catálogo de posiciones por formato y zona.
+
+#### 🔄 Loop central con datos reales (paso 5)
+- **Crear Picao** desde canchas reales en Supabase → genera código `PCO-XXXX`.
+- **Listado público** de picaos abiertos con datos desde la BD.
+- **Búsqueda por código** vía función `buscar_picao_por_codigo` (SECURITY DEFINER).
+- **Detalle** con información real del picao y la cancha.
+- Cálculo de seña: `precio_cancha_hora / cupos_totales + $1.250`.
+- **Migración de navegación:** las pantallas del loop central ya usan rutas reales de
+  App Router. Las pantallas restantes (Splash, Onboarding, Welcome, etc.) siguen en
+  máquina de estados mientras se migran.
+
+> ⚠️ **Pagos con Wompi** (seña agrupada, confirmación y devolución) — pendiente (paso 6).
 
 ---
 
@@ -59,7 +79,7 @@ prototipo de Magic Patterns. Todavía **sin lógica de datos, auth ni pagos**.
 | Estilos | Tailwind CSS v3 · `next/font` (Archivo + Inter) |
 | Animación | framer-motion |
 | Íconos | lucide-react |
-| Backend *(pendiente)* | Supabase — auth OTP (SMS), Postgres, realtime |
+| Backend | Supabase — auth OTP (email), Postgres, migraciones SQL |
 | Pagos *(pendiente)* | Wompi — Nequi, Daviplata, PSE |
 
 ---
@@ -92,36 +112,39 @@ del navegador (DevTools). El flujo central es:
 ```
 src/
 ├── app/
-│   ├── layout.tsx        # fuentes, metadata, theme-color, registro del SW
-│   ├── page.tsx          # máquina de estados de navegación (client)
-│   ├── manifest.ts       # manifest PWA
-│   └── globals.css       # Tailwind + utilidades (.font-display, .hide-scrollbar)
+│   ├── auth/callback/     # callback de autenticación Supabase
+│   ├── layout.tsx         # fuentes, metadata, theme-color, registro del SW
+│   ├── page.tsx           # máquina de estados de navegación (client)
+│   ├── manifest.ts        # manifest PWA
+│   └── globals.css        # Tailwind + utilidades
 ├── components/
-│   ├── Shared.tsx         # logo O-cancha, FieldCard, AvatarStack, BottomNav
+│   ├── Shared.tsx          # logo O-cancha, FieldCard, AvatarStack, BottomNav
 │   └── ServiceWorkerRegister.tsx
-├── data/picaos.ts         # tipos + datos mock
-└── screens/               # las 14 pantallas
-public/
-├── icon.svg · icon-maskable.svg · sw.js
-docs/screenshots/          # capturas usadas en este README
+├── data/                  # tipos + helpers locales
+├── lib/
+│   ├── auth.ts            # auth Supabase (enlace mágico, perfil)
+│   ├── picaos.ts          # CRUD real de picaos contra Supabase
+│   └── supabase/          # client, server, types autogenerados
+├── middleware.ts           # refresco de sesión Supabase
+└── screens/                # las 14 pantallas
+supabase/
+├── migrations/             # 5 migraciones SQL
+└── config.toml             # configuración local Supabase
+public/                     # assets estáticos + service worker
+docs/screenshots/           # capturas usadas en este README
 ```
 
 ---
 
 ## 🔭 Trabajo futuro
 
-Orden de construcción planeado (por capas, una a la vez):
+Siguiente en orden de construcción:
 
-1. **Auth con Supabase** — OTP por SMS (Welcome / Register / Login reales).
-2. **Modelo de datos en Supabase** — tablas (`usuarios`, `picaos`, `inscripciones`,
-   `pagos`, `posiciones` precargadas) y migrar la navegación a **rutas reales**.
-3. **Loop central con datos reales** — Crear Picao genera código `PCO-XXXX`, listado
-   y búsqueda, detalle.
-4. **Pagos con Wompi** — seña agrupada en una sola transacción
+1. **Pagos con Wompi** — seña agrupada en una sola transacción
    (`precio_cancha / cupos + $1.250` de organización), confirmación automática al
    llenarse y **devolución** si no se llena.
-5. **Realtime** — cupos en vivo, luego **Chat** y **Notificaciones** funcionales.
-6. **Deploy.**
+2. **Realtime** — cupos en vivo, luego **Chat** y **Notificaciones** funcionales.
+3. **Deploy.**
 
 Modelo de negocio (para priorizar features):
 - **Capa 1 — Señas:** depósito por jugador que confirma asistencia y elimina los *no-show*.
