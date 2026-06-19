@@ -62,6 +62,9 @@ export const AvatarStack = ({
     </div>
   )
 }
+const FOTO_DEFAULT =
+  'https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&w=800&q=80'
+
 export const FieldCard = ({
   picao,
   onClick,
@@ -70,6 +73,9 @@ export const FieldCard = ({
   onClick: () => void
 }) => {
   const field = FIELDS[picao.fieldId]
+  const foto = picao.fotoUrl ?? field?.photoUrl ?? FOTO_DEFAULT
+  const nombre = picao.canchaNombre ?? field?.name ?? 'Cancha'
+  const barrio = picao.barrio ?? field?.barrio ?? ''
   const isUrgent =
     picao.totalSlots - picao.slots <= 2 && picao.totalSlots !== picao.slots
   return (
@@ -82,8 +88,8 @@ export const FieldCard = ({
     >
       <div className="h-24 relative">
         <img
-          src={field.photoUrl}
-          alt={field.name}
+          src={foto}
+          alt={nombre}
           className="w-full h-full object-cover opacity-80"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-superficie to-transparent"></div>
@@ -92,7 +98,7 @@ export const FieldCard = ({
         </div>
         <div className="absolute bottom-2 left-3 right-3 flex justify-between items-end">
           <h3 className="font-display text-lg text-crema leading-tight drop-shadow-md">
-            {field.name}
+            {nombre}
           </h3>
         </div>
       </div>
@@ -104,7 +110,7 @@ export const FieldCard = ({
           </span>
           <span>•</span>
           <span className="flex items-center gap-1">
-            <MapPin size={12} /> {field.barrio}
+            <MapPin size={12} /> {barrio}
           </span>
         </div>
 
