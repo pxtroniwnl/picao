@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Splash } from '../screens/Splash'
 import { Onboarding } from '../screens/Onboarding'
@@ -18,6 +18,8 @@ import { Notificaciones } from '../screens/Notificaciones'
 import { CrearPicao } from '../screens/CrearPicao'
 import { BottomNav } from '../components/Shared'
 import { Picao, MOCK_PICAOS } from '../data/picaos'
+import { createClient } from '../lib/supabase/client'
+import { guardarPerfil, obtenerPerfil, type PerfilDatos } from '../lib/auth'
 
 type ScreenState =
   | 'splash'
@@ -41,15 +43,42 @@ export default function Page() {
   const [selectedPicao, setSelectedPicao] = useState<Picao | null>(MOCK_PICAOS[0])
   const [created, setCreated] = useState<Picao[]>(MOCK_PICAOS.filter((p) => p.createdByMe))
   const [pendingPicao, setPendingPicao] = useState<Picao | null>(null)
+  // --- Auth ---
+  const [authNuevo, setAuthNuevo] = useState(false) // true = registro, false = inicio de sesión
+  const [guardando, setGuardando] = useState(false)
+
   const participo = MOCK_PICAOS.filter((p) => p.joined)
   const historial = MOCK_PICAOS.filter((p) => p.status === 'jugado')
 
   const currentScreen = history[history.length - 1]
-  const push = (screen: ScreenState) => setHistory([...history, screen])
-  const pop = () => {
-    if (history.length > 1) setHistory(history.slice(0, -1))
-  }
+  const push = (screen: ScreenState) => setHistory((h) => [...h, screen])
+  const pop = () => setHistory((h) => (h.length > 1 ? h.slice(0, -1) : h))
   const resetTo = (screen: ScreenState) => setHistory([screen])
+  const irAHome = () => {
+    setActiveTab('home')
+    resetTo('home')
+  }
+
+  // Al cargar (incluye el regreso desde /auth/callback): decide a dónde ir según la sesión.
+  useEffect(() => {
+    let activo = true
+    ;(async () => {
+      const supabase = createClient()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (!session || !activo) return
+      const perfil = await obtenerPerfil()
+      if (!activo) return
+      if (perfil) irAHome()
+      else resetTo('register') // autenticado sin perfil → completar perfil
+    })()
+    return () => {
+      activo = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleTabChange = (tab: string) => {
     setActiveTab(tab as 'home' | 'mis-partidos' | 'perfil')
     resetTo(tab as ScreenState)
@@ -78,6 +107,20 @@ export default function Page() {
           : p,
       ),
     )
+
+  // --- Auth handlers ---
+  const irALogin = (nuevo: boolean) => {
+    setAuthNuevo(nuevo)
+    push('login')
+  }
+  const handleProfileSubmit = async (datos: PerfilDatos) => {
+    setGuardando(true)
+    await guardarPerfil(datos)
+    setGuardando(false)
+    irAHome()
+  }
+  const handleLogout = () => resetTo('welcome')
+
   const isTabScreen = ['home', 'mis-partidos', 'perfil'].includes(currentScreen)
 
   return (
@@ -96,17 +139,17 @@ export default function Page() {
           )}
           {currentScreen === 'welcome' && (
             <motion.div key="welcome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full absolute inset-0">
-              <Welcome onRegister={() => push('register')} onLogin={() => push('login')} />
+              <Welcome onRegister={() => irALogin(true)} onLogin={() => irALogin(false)} />
             </motion.div>
           )}
           {currentScreen === 'login' && (
             <motion.div key="login" initial={{ x: 390 }} animate={{ x: 0 }} exit={{ x: 390 }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="h-full absolute inset-0 z-30">
-              <Login onBack={pop} onComplete={() => resetTo('home')} />
+              <Login nuevo={authNuevo} onBack={pop} />
             </motion.div>
           )}
           {currentScreen === 'register' && (
             <motion.div key="register" initial={{ x: 390 }} animate={{ x: 0 }} exit={{ x: 390 }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} className="h-full absolute inset-0 z-30">
-              <Register onBack={pop} onComplete={() => resetTo('home')} />
+              <Register onBack={() => resetTo('welcome')} onSubmit={handleProfileSubmit} guardando={guardando} />
             </motion.div>
           )}
 
@@ -139,7 +182,7 @@ export default function Page() {
           )}
           {currentScreen === 'perfil' && (
             <motion.div key="perfil" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full absolute inset-0">
-              <Perfil />
+              <Perfil onLogout={handleLogout} />
             </motion.div>
           )}
 

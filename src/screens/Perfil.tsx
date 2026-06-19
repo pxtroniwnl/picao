@@ -1,57 +1,72 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Pencil, Check, Star, Trophy, Activity, MapPin, Mail, Phone, Cake } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { Pencil, Check, Star, Trophy, Activity, Fingerprint, Mail, Phone, Cake, LogOut, Loader2 } from 'lucide-react'
+import type { Zona } from '../lib/supabase/types'
+import { obtenerPerfil, guardarPerfil, cerrarSesion, type PerfilDatos } from '../lib/auth'
+import { FORMATOS, ZONAS, posicionesPorFormato } from '../data/posiciones'
 
-const ZONAS = [
-  { id: 'portero', label: 'Portero' },
-  { id: 'defensa', label: 'Defensa' },
-  { id: 'medio', label: 'Medio' },
-  { id: 'ataque', label: 'Ataque' },
-]
-const NIVELES = ['Principiante', 'Intermedio', 'Avanzado']
-const FMT: Record<string, string> = { '5v5': 'Fútbol 5', '7v7': 'Fútbol 7', '11v11': 'Fútbol 11' }
-const POSICIONES: Record<string, string[]> = {
-  '5v5': ['Portero', 'Cierre', 'Ala Izq.', 'Ala Der.', 'Pívot'],
-  '7v7': ['Portero', 'Lateral Izq.', 'Defensa', 'Lateral Der.', 'Medio Centro', 'Extremo Izq.', 'Extremo Der.', 'Delantero'],
-  '11v11': ['Portero', 'Lat. Izq.', 'Central', 'Lat. Der.', 'Mediocentro Def.', 'Mediocentro', 'Mediapunta', 'Extremo Izq.', 'Extremo Der.', 'Delantero'],
-}
-
-const toggle = (arr: string[], v: string) =>
+const toggle = <T,>(arr: T[], v: T) =>
   arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]
 
-export const Perfil = () => {
+const vacio: PerfilDatos = {
+  cedula: '',
+  apodo: '',
+  telefono: '',
+  email: '',
+  fecha_nacimiento: '',
+  zonas: [],
+  posiciones: [],
+}
+
+export const Perfil = ({ onLogout }: { onLogout: () => void }) => {
   const [editing, setEditing] = useState(false)
-  const [p, setP] = useState({
-    nickname: 'ElPibe10',
-    correo: 'elpibe@mail.com',
-    telefono: '300 123 4567',
-    fecha: '2000-05-12',
-    barrio: 'Bocagrande',
-    nivel: 'Intermedio',
-    zonas: ['medio', 'ataque'] as string[],
-    posiciones: {
-      '5v5': ['Ala Der.', 'Pívot'],
-      '7v7': ['Medio Centro', 'Extremo Der.'],
-      '11v11': ['Mediapunta', 'Delantero'],
-    } as Record<string, string[]>,
-  })
-  const set = (patch: Partial<typeof p>) => setP((prev) => ({ ...prev, ...patch }))
-  const togglePos = (fmt: string, pos: string) =>
-    setP((prev) => ({
-      ...prev,
-      posiciones: { ...prev.posiciones, [fmt]: toggle(prev.posiciones[fmt], pos) },
-    }))
+  const [cargando, setCargando] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+  const [p, setP] = useState<PerfilDatos>(vacio)
+
+  useEffect(() => {
+    obtenerPerfil().then((perfil) => {
+      if (perfil) setP({ ...vacio, ...perfil })
+      setCargando(false)
+    })
+  }, [])
+
+  const set = (patch: Partial<PerfilDatos>) => setP((prev) => ({ ...prev, ...patch }))
+  const togglePos = (codigo: string) => set({ posiciones: toggle(p.posiciones, codigo) })
+
+  const toggleEdit = async () => {
+    if (editing) {
+      setGuardando(true)
+      await guardarPerfil(p)
+      setGuardando(false)
+    }
+    setEditing((e) => !e)
+  }
+
+  const logout = async () => {
+    await cerrarSesion()
+    onLogout()
+  }
+
+  if (cargando) {
+    return (
+      <div className="flex flex-col h-full bg-carbon items-center justify-center">
+        <Loader2 className="text-verde animate-spin" size={32} />
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col h-full bg-carbon relative pb-20">
       <div className="px-5 pt-12 pb-4 flex justify-between items-center bg-carbon z-10 sticky top-0">
         <h1 className="font-display text-2xl text-crema">PERFIL</h1>
         <button
-          onClick={() => setEditing((e) => !e)}
+          onClick={toggleEdit}
+          disabled={guardando}
           className={`flex items-center gap-1 ${editing ? 'text-verde font-display text-sm' : 'text-crema'}`}
         >
-          {editing ? (<><Check size={18} /> GUARDAR</>) : <Pencil size={20} />}
+          {guardando ? <Loader2 size={18} className="animate-spin" /> : editing ? (<><Check size={18} /> GUARDAR</>) : <Pencil size={20} />}
         </button>
       </div>
 
@@ -59,6 +74,7 @@ export const Perfil = () => {
         {/* Avatar + nickname */}
         <div className="flex items-center gap-5 mb-6">
           <div className="relative">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="https://i.pravatar.cc/150?img=33" alt="Avatar" className="w-24 h-24 rounded-full border-4 border-superficie object-cover" />
             {editing && (
               <div className="absolute inset-0 rounded-full bg-carbon/60 flex items-center justify-center text-[10px] text-crema font-medium">Cambiar</div>
@@ -66,38 +82,29 @@ export const Perfil = () => {
           </div>
           <div className="flex-1">
             {editing ? (
-              <input value={p.nickname} onChange={(e) => set({ nickname: e.target.value })} className="w-full bg-superficie border border-white/10 rounded-lg px-3 py-2 text-crema font-display text-xl outline-none focus:border-naranja mb-2" />
+              <input value={p.apodo} onChange={(e) => set({ apodo: e.target.value })} className="w-full bg-superficie border border-white/10 rounded-lg px-3 py-2 text-crema font-display text-xl outline-none focus:border-naranja mb-2" />
             ) : (
-              <h2 className="font-display text-2xl text-crema">{p.nickname}</h2>
+              <h2 className="font-display text-2xl text-crema">{p.apodo || 'Sin nombre'}</h2>
             )}
-            <div className="flex items-center gap-1 text-gris text-sm mb-2"><MapPin size={14} /> {p.barrio}</div>
-            {editing ? (
-              <div className="flex gap-1">
-                {NIVELES.map((n) => (
-                  <button key={n} onClick={() => set({ nivel: n })} className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${p.nivel === n ? 'bg-naranja text-carbon' : 'bg-superficie text-gris'}`}>{n}</button>
-                ))}
-              </div>
-            ) : (
-              <div className="inline-flex items-center px-2 py-1 bg-naranja/20 text-naranja text-xs font-bold uppercase rounded">{p.nivel}</div>
-            )}
+            <div className="flex items-center gap-1 text-gris text-sm"><Fingerprint size={14} /> C.C. {p.cedula || '—'}</div>
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Stats (placeholder hasta tener datos de picaos) */}
         <div className="grid grid-cols-3 gap-3 mb-8">
           <div className="bg-superficie rounded-2xl p-4 flex flex-col items-center justify-center border border-white/5">
             <Star className="text-naranja mb-1" size={20} />
-            <div className="font-display text-xl text-crema">4.9</div>
+            <div className="font-display text-xl text-crema">—</div>
             <div className="text-[10px] text-gris uppercase">Rating</div>
           </div>
           <div className="bg-superficie rounded-2xl p-4 flex flex-col items-center justify-center border border-white/5">
             <Activity className="text-verde mb-1" size={20} />
-            <div className="font-display text-xl text-crema">24</div>
+            <div className="font-display text-xl text-crema">0</div>
             <div className="text-[10px] text-gris uppercase">Jugados</div>
           </div>
           <div className="bg-superficie rounded-2xl p-4 flex flex-col items-center justify-center border border-white/5">
             <Trophy className="text-magenta mb-1" size={20} />
-            <div className="font-display text-xl text-crema">98%</div>
+            <div className="font-display text-xl text-crema">—</div>
             <div className="text-[10px] text-gris uppercase">Asistencia</div>
           </div>
         </div>
@@ -105,10 +112,9 @@ export const Perfil = () => {
         {/* Datos de la cuenta */}
         <h3 className="font-display text-lg text-crema mb-3">DATOS DE LA CUENTA</h3>
         <div className="space-y-3 mb-8">
-          <InfoRow icon={<Mail size={14} />} label="Correo" value={p.correo} editing={editing} type="email" onChange={(v) => set({ correo: v })} />
-          <InfoRow icon={<Phone size={14} />} label="Teléfono" value={p.telefono} editing={editing} type="tel" onChange={(v) => set({ telefono: v })} />
-          <InfoRow icon={<Cake size={14} />} label="Fecha de nacimiento" value={p.fecha} editing={editing} type="date" onChange={(v) => set({ fecha: v })} />
-          <InfoRow icon={<MapPin size={14} />} label="Barrio" value={p.barrio} editing={editing} onChange={(v) => set({ barrio: v })} />
+          <InfoRow icon={<Mail size={14} />} label="Correo" value={p.email ?? ''} editing={editing} type="email" onChange={(v) => set({ email: v })} />
+          <InfoRow icon={<Phone size={14} />} label="Teléfono" value={p.telefono ?? ''} editing={editing} type="tel" onChange={(v) => set({ telefono: v })} />
+          <InfoRow icon={<Cake size={14} />} label="Fecha de nacimiento" value={p.fecha_nacimiento ?? ''} editing={editing} type="date" onChange={(v) => set({ fecha_nacimiento: v })} />
         </div>
 
         {/* Zonas */}
@@ -120,7 +126,7 @@ export const Perfil = () => {
               <button
                 key={z.id}
                 disabled={!editing}
-                onClick={() => set({ zonas: toggle(p.zonas, z.id) })}
+                onClick={() => set({ zonas: toggle<Zona>(p.zonas, z.id) })}
                 className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${on ? 'bg-verde/10 border-verde text-verde' : 'bg-superficie border-white/10 text-gris'}`}
               >
                 {z.label}
@@ -133,24 +139,25 @@ export const Perfil = () => {
         {/* Posiciones por formato */}
         <h3 className="font-display text-lg text-crema mb-3">POSICIONES</h3>
         <div className="space-y-4 mb-8">
-          {(['5v5', '7v7', '11v11'] as const).map((fmt) => {
-            const sel = p.posiciones[fmt]
-            const list = editing ? POSICIONES[fmt] : sel
+          {FORMATOS.map((f) => {
+            const cat = posicionesPorFormato(f.id)
+            const seleccionadas = cat.filter((pos) => p.posiciones.includes(pos.codigo))
+            const lista = editing ? cat : seleccionadas
             return (
-              <div key={fmt}>
-                <p className="text-xs text-gris uppercase tracking-wider mb-2">{FMT[fmt]}</p>
+              <div key={f.id}>
+                <p className="text-xs text-gris uppercase tracking-wider mb-2">{f.label}</p>
                 <div className="flex flex-wrap gap-2">
-                  {list.length === 0 && !editing && <span className="text-gris text-sm">Sin posiciones</span>}
-                  {list.map((pos) => {
-                    const on = sel.includes(pos)
+                  {lista.length === 0 && !editing && <span className="text-gris text-sm">Sin posiciones</span>}
+                  {lista.map((pos) => {
+                    const on = p.posiciones.includes(pos.codigo)
                     return (
                       <button
-                        key={pos}
+                        key={pos.codigo}
                         disabled={!editing}
-                        onClick={() => togglePos(fmt, pos)}
+                        onClick={() => togglePos(pos.codigo)}
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${on ? 'bg-verde text-carbon border-verde' : 'bg-superficie text-crema border-white/10'}`}
                       >
-                        {pos}
+                        {pos.label}
                       </button>
                     )
                   })}
@@ -160,9 +167,9 @@ export const Perfil = () => {
           })}
         </div>
 
-        {/* Insignias */}
+        {/* Insignias (placeholder) */}
         <h3 className="font-display text-lg text-crema mb-4">INSIGNIAS</h3>
-        <div className="space-y-3">
+        <div className="space-y-3 mb-8">
           {[
             { title: 'Goleador', desc: 'Marcó en 5 picaos seguidos', icon: '⚽' },
             { title: 'Siempre Llega', desc: '100% asistencia este mes', icon: '⏱️' },
@@ -177,6 +184,14 @@ export const Perfil = () => {
             </div>
           ))}
         </div>
+
+        {/* Cerrar sesión */}
+        <button
+          onClick={logout}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-xl border border-magenta/40 text-magenta font-display text-sm active:scale-95 transition-transform"
+        >
+          <LogOut size={18} /> CERRAR SESIÓN
+        </button>
       </div>
     </div>
   )
@@ -207,7 +222,7 @@ const InfoRow = ({
         className={`w-full bg-carbon border border-white/10 rounded-lg px-3 py-2.5 text-crema font-medium text-sm outline-none focus:border-naranja ${type === 'date' ? '[color-scheme:dark]' : ''}`}
       />
     ) : (
-      <div className="text-crema font-medium">{value}</div>
+      <div className="text-crema font-medium">{value || '—'}</div>
     )}
   </div>
 )

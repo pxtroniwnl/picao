@@ -1,5 +1,5 @@
 // Tipos del modelo de datos de Picao, escritos a mano para tipar el SDK de Supabase.
-// Reflejan supabase/migrations/0001_init.sql.
+// Reflejan supabase/migrations/0001_init.sql + 0003_perfil_extendido.sql.
 // Regenerar con: supabase gen types typescript --project-id iatarltylsjnjorjjvfl > src/lib/supabase/types.ts
 
 export type Zona = 'ARQUERO' | 'DEFENSA' | 'MEDIO' | 'ATAQUE'
@@ -14,40 +14,55 @@ export type Database = {
         Row: { id: string; label: string; cupos_totales: number }
         Insert: { id: string; label: string; cupos_totales: number }
         Update: { id?: string; label?: string; cupos_totales?: number }
+        Relationships: []
       }
       posiciones: {
-        Row: { id: string; formato_id: string; zona: Zona; nombre: string }
-        Insert: { id?: string; formato_id: string; zona: Zona; nombre: string }
-        Update: { id?: string; formato_id?: string; zona?: Zona; nombre?: string }
+        Row: { id: string; formato_id: string; zona: Zona; nombre: string; codigo: string }
+        Insert: { id?: string; formato_id: string; zona: Zona; nombre: string; codigo: string }
+        Update: { id?: string; formato_id?: string; zona?: Zona; nombre?: string; codigo?: string }
+        Relationships: []
       }
       usuarios: {
         Row: {
           id: string
+          cedula: string | null
           apodo: string
           telefono: string | null
           email: string | null
-          zona_preferida: Zona | null
-          posicion_id: string | null
+          fecha_nacimiento: string | null
           created_at: string
         }
         Insert: {
           id: string
+          cedula?: string | null
           apodo: string
           telefono?: string | null
           email?: string | null
-          zona_preferida?: Zona | null
-          posicion_id?: string | null
+          fecha_nacimiento?: string | null
           created_at?: string
         }
         Update: {
           id?: string
+          cedula?: string | null
           apodo?: string
           telefono?: string | null
           email?: string | null
-          zona_preferida?: Zona | null
-          posicion_id?: string | null
+          fecha_nacimiento?: string | null
           created_at?: string
         }
+        Relationships: []
+      }
+      usuario_zonas: {
+        Row: { usuario_id: string; zona: Zona }
+        Insert: { usuario_id: string; zona: Zona }
+        Update: { usuario_id?: string; zona?: Zona }
+        Relationships: []
+      }
+      usuario_posiciones: {
+        Row: { usuario_id: string; posicion_id: string }
+        Insert: { usuario_id: string; posicion_id: string }
+        Update: { usuario_id?: string; posicion_id?: string }
+        Relationships: []
       }
       picaos: {
         Row: {
@@ -98,6 +113,7 @@ export type Database = {
           estado?: EstadoPicao
           created_at?: string
         }
+        Relationships: []
       }
       inscripciones: {
         Row: {
@@ -121,6 +137,7 @@ export type Database = {
           estado_pago?: EstadoPago
           created_at?: string
         }
+        Relationships: []
       }
       pagos: {
         Row: {
@@ -150,6 +167,7 @@ export type Database = {
           wompi_transaccion_id?: string | null
           created_at?: string
         }
+        Relationships: []
       }
     }
     Views: Record<never, never>
@@ -163,5 +181,6 @@ export type Database = {
       estado_picao: EstadoPicao
       estado_pago: EstadoPago
     }
+    CompositeTypes: Record<never, never>
   }
 }
