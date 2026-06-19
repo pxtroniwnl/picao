@@ -1,0 +1,167 @@
+// Tipos del modelo de datos de Picao, escritos a mano para tipar el SDK de Supabase.
+// Reflejan supabase/migrations/0001_init.sql.
+// Regenerar con: supabase gen types typescript --project-id iatarltylsjnjorjjvfl > src/lib/supabase/types.ts
+
+export type Zona = 'ARQUERO' | 'DEFENSA' | 'MEDIO' | 'ATAQUE'
+export type Visibilidad = 'publico' | 'privado'
+export type EstadoPicao = 'abierto' | 'confirmado' | 'lleno' | 'jugado' | 'cancelado'
+export type EstadoPago = 'pendiente' | 'pagado' | 'devuelto' | 'fallido'
+
+export type Database = {
+  public: {
+    Tables: {
+      formatos: {
+        Row: { id: string; label: string; cupos_totales: number }
+        Insert: { id: string; label: string; cupos_totales: number }
+        Update: { id?: string; label?: string; cupos_totales?: number }
+      }
+      posiciones: {
+        Row: { id: string; formato_id: string; zona: Zona; nombre: string }
+        Insert: { id?: string; formato_id: string; zona: Zona; nombre: string }
+        Update: { id?: string; formato_id?: string; zona?: Zona; nombre?: string }
+      }
+      usuarios: {
+        Row: {
+          id: string
+          apodo: string
+          telefono: string | null
+          email: string | null
+          zona_preferida: Zona | null
+          posicion_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id: string
+          apodo: string
+          telefono?: string | null
+          email?: string | null
+          zona_preferida?: Zona | null
+          posicion_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          apodo?: string
+          telefono?: string | null
+          email?: string | null
+          zona_preferida?: Zona | null
+          posicion_id?: string | null
+          created_at?: string
+        }
+      }
+      picaos: {
+        Row: {
+          id: string
+          codigo: string
+          organizador_id: string
+          cancha_nombre: string
+          barrio: string
+          formato_id: string
+          fecha: string
+          hora: string
+          duracion_horas: number
+          precio_cancha_hora: number
+          sena: number
+          visibilidad: Visibilidad
+          estado: EstadoPicao
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          codigo?: string
+          organizador_id: string
+          cancha_nombre: string
+          barrio: string
+          formato_id: string
+          fecha: string
+          hora: string
+          duracion_horas?: number
+          precio_cancha_hora: number
+          sena: number
+          visibilidad?: Visibilidad
+          estado?: EstadoPicao
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          codigo?: string
+          organizador_id?: string
+          cancha_nombre?: string
+          barrio?: string
+          formato_id?: string
+          fecha?: string
+          hora?: string
+          duracion_horas?: number
+          precio_cancha_hora?: number
+          sena?: number
+          visibilidad?: Visibilidad
+          estado?: EstadoPicao
+          created_at?: string
+        }
+      }
+      inscripciones: {
+        Row: {
+          id: string
+          picao_id: string
+          usuario_id: string
+          estado_pago: EstadoPago
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          picao_id: string
+          usuario_id: string
+          estado_pago?: EstadoPago
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          picao_id?: string
+          usuario_id?: string
+          estado_pago?: EstadoPago
+          created_at?: string
+        }
+      }
+      pagos: {
+        Row: {
+          id: string
+          inscripcion_id: string
+          monto: number
+          estado: EstadoPago
+          wompi_referencia: string | null
+          wompi_transaccion_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          inscripcion_id: string
+          monto: number
+          estado?: EstadoPago
+          wompi_referencia?: string | null
+          wompi_transaccion_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          inscripcion_id?: string
+          monto?: number
+          estado?: EstadoPago
+          wompi_referencia?: string | null
+          wompi_transaccion_id?: string | null
+          created_at?: string
+        }
+      }
+    }
+    Views: Record<never, never>
+    Functions: {
+      gen_codigo_pco: { Args: Record<never, never>; Returns: string }
+      calcular_sena: { Args: { precio: number; cupos: number }; Returns: number }
+    }
+    Enums: {
+      zona: Zona
+      visibilidad: Visibilidad
+      estado_picao: EstadoPicao
+      estado_pago: EstadoPago
+    }
+  }
+}
